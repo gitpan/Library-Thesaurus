@@ -14,4 +14,4 @@ my $a = thesaurusLoad("t/a.the");
 
 my $c = $a->append("t/b.the");
 
-print STDERR Dumper($c);
+# print STDERR Dumper($c);

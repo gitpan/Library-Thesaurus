@@ -25,7 +25,7 @@ our @EXPORT = qw(&thesaurusLoad &thesaurusNew &thesaurusRetrieve &thesaurusMulti
 our ($class,@terms,$term);
 
 # Version
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 # Multi-language stuff
 our $lang;
@@ -109,6 +109,7 @@ sub default_inversions {
   return {
 	  'NT' => 'BT',
 	  'BT' => 'NT',
+	  'RT' => 'RT',
 	  'USE' => 'UF',
 	  'UF' => 'USE',
 	 };
@@ -752,9 +753,7 @@ sub toTex{
                    : "\\\\\\emph{".ucfirst(lc($class))."} -- " 
                   );
       my $kf = $_corres->{$class}->[1] || "\n";
-      for $a (@terms){
-        $r .= $ki.$a.$kf;};
-      $r
+      $r = $ki . join(' $\diamondsuit$ ',@terms) if @terms;
       };
 
 "\\begin{description}\n".
