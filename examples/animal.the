@@ -1,0 +1,16 @@
+%baselang PT
+%languages EN
+%desc[EN] NT Narrower Term
+%desc[EN] BT Broader Term
+%desc NT Termo Específico
+%desc BT Termo Genérico
+
+_top_
+NT animal
+
+animal
+NT gato
+EN animal
+
+gato
+EN cat

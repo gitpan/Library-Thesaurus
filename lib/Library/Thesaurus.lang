@@ -1,0 +1,107 @@
+cantopen
+pt: Erro ao ler o ficheiro de Thesaurus
+uk: Can't open thesaurus file
+
+rterm
+pt: Termo relacionado
+uk: Related term
+
+tterm
+pt: Termo de topo
+uk: Top term
+
+nterm
+pt: Termo específico
+uk: Narrower term
+
+bterm
+pt: Termo genérico
+uk: Broader term
+
+useterm
+pt: Sinónimo
+uk: Synonym
+
+ufterm
+pt: Quase sinónimo
+uk: Quasi synonym
+
+snote
+pt: Nota de contexto
+uk: Scope note
+
+tnothere
+pt: Termo $term não disponivel
+uk: Term $term is not defined
+
+saved
+pt: Gravado
+uk: Saved
+
+insert
+pt: Introduzir termo
+uk: Insert term
+
+term
+pt: Termo:
+uk: Term:
+
+rels
+pt: Relações:
+uk: Relations:
+
+ok
+pt: Ok
+uk: Ok
+
+deleted
+pt: Termo Apagado
+uk: Term Deleted
+
+delete
+pt: Apagar termo
+uk: Delete term
+
+termtodel
+pt: Termo a apagar:
+uk: Term to delete:
+
+descrel
+pt: Descrever Relação
+uk: Descrive Relation
+
+rel
+pt: Relação
+uk: Relation
+
+desc
+pt: Descrição
+uk: Description
+
+descinv
+pt: Definir Relações Inversas
+uk: Define Inverse Relation
+
+error
+pt: Erro!!!
+uk: Error!!!
+
+cant
+pt: Possivelmente não tenho permissões para fazer isso!
+uk: Can't do that. Maybe no permissions!
+
+saviso
+pt: Gravar ISO
+uk: Save ISO
+
+file
+pt: Ficheiro
+uk: Filename
+
+index
+pt: MENU
+uk: INDEX
+
+autocomplete
+pt: Auto-Completar
+uk: Auto-Complete

@@ -1,0 +1,15 @@
+INSTALL
+Changes
+Makefile.PL
+Thesaurus.pm
+MANIFEST
+lib/Library/Thesaurus.lang
+examples/thesaurus
+examples/animal.the
+examples/example.pl
+README
+t/0_simple.t
+t/9_big.t
+t/a.the
+t/b.the
+t/1_join.t
