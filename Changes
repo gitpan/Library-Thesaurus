@@ -67,3 +67,17 @@ Revision history for Perl extension Library::Thesaurus.
 	- Type case maintained
 	- More structure for multi-lingue thesaurus
 	- Added some more tests
+
+0.12  Wed Dec 01 02:03:04 2001
+	- More tests
+	- Some bug fixes
+
+0.13 Thu Dec 19 02:03:04 2001
+	- Added the no title and the expand options to the navigate
+          method;
+
+0.14 Sat May 31 08:09:10 2002
+	- Added more options to navigate method (level2hide,
+          level2size, scriptname)
+	- Removed some warnings sent to STDOUT;
+

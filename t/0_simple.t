@@ -3,7 +3,7 @@ use Data::Dumper;
 use strict;
 use Test;
 
-BEGIN { plan tests => 9 }
+BEGIN { plan tests => 10 }
 
 # Check module loadability
 use Library::Thesaurus;
@@ -28,6 +28,8 @@ ok(defined($thesaurus->{languages}{$thesaurus->{baselang}}));
 # Check multi-lang support
 $thesaurus = thesaurusLoad("examples/animal.the");
 ok($thesaurus->{EN}{cat},"gato");
+
+ok($thesaurus->getdefinition("cat"),"gato");
 
 # Check definition type comparison
 ok($thesaurus->isdefined('GaTo'));

@@ -5,6 +5,7 @@ use strict;
 use warnings;
 require Exporter;
 use Storable;
+use CGI qw/:standard/;
 
 use Library::MLang;
 
@@ -20,12 +21,12 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 #
 # The last three variables are used to down-translation sub
 our @EXPORT = qw(&thesaurusLoad &thesaurusNew &thesaurusRetrieve &thesaurusMultiLoad
-                 @terms $term $class);
+		 @Terms $Term $Class);
 
-our ($class,@terms,$term);
+our ($Class,@Terms,$Term);
 
 # Version
-our $VERSION = '0.13';
+our $VERSION = '0.14';
 
 # Multi-language stuff
 our $lang;
@@ -48,14 +49,15 @@ sub top_name {
 sub terms {
   my ($self, $term, @rels) = @_;
   my $base = $self->{baselang};
+  return () unless $self->isdefined($term);
   $term = $self->definition($term);
-  return map {
+  return (map {
     if (exists($self->{$base}{$term}{$_})) {
       @{$self->{$base}{$term}{$_}}
     } else {
       ()
     }
-  } @rels;
+  } @rels);
 }
 
 ##
@@ -130,13 +132,13 @@ sub translateTerm {
       if (defined($trad = $self->{$self->{baselang}}{$term}{$lang})) {
 	return $trad;
       } else {
-	return $self->definition($term);
+	return $self->getdefinition($term);
       }
     } else {
-      return $self->definition($term);
+      return $self->getdefinition($term);
     }
   } else {
-    return $self->definition($term);
+    return $self->getdefinition($term);
   }
 }
 
@@ -307,7 +309,7 @@ sub default_descriptions {
 	  'BT'  => $lang->get("bterm"),
 	  'USE' => $lang->get("useterm"),
 	  'UF'  => $lang->get("ufterm"),
-	  'SN'  => $lang->get("snote"),
+	  'SN'  => "...",
 	 };
 }
 
@@ -323,6 +325,14 @@ sub interfaceLanguages {
 #
 sub interfaceSetLanguage {
   $lang->setLanguage(shift);
+}
+
+sub setExternal {
+  my ($self,@rels) = @_;
+  for (@rels) {
+    $self->{externals}{uc($_)} = 1;
+  }
+  return $self;
 }
 
 ###
@@ -644,19 +654,21 @@ sub navigate {
 
   # Get the configuration hash
   my $conf = {};
-  if (ref($_[0])) {
-    $conf = shift;
-  }
+  if (ref($_[0])) { $conf = shift }
 
   my $expander = $conf->{expand} || [];
+  my @tmp = map {$obj->{inverses}{$_}} @$expander;
   my $language = $conf->{lang} || undef;
+  my $second_level_limit = $conf->{level2size} || 0;
+  my $hide_on_second_level = $conf->{level2hide} || \@tmp;
+  $script = $conf->{scriptname} if (exists($conf->{scriptname}));
   my %param = @_;
 
   my $term;
   my $show_title = 1;
-  $param{t} =~ s/\+/ /g;
-  if ($obj->isdefined($param{t})) {
-    $term = $obj->{defined}{lc($param{t})};
+  if (exists($param{t})) {
+    $param{t} =~ s/\+/ /g;
+    $term = $obj->getdefinition($param{t});
   } else {
     $show_title = 0 if exists($conf->{title}) && $conf->{title} eq "no";
     if ($obj->isdefined($obj->{name})) {
@@ -669,10 +681,10 @@ sub navigate {
   my (@terms,$html);
 
   # If we don't have the term, return only the title
-  return "<h2>$term</h2>" unless (defined($obj->{$obj->{baselang}}{$term}));
+  return h2($term) unless ($obj->isdefined($term));
 
   # Make the page title
-  $html = "<h2>".$obj->translateTerm($term,$language)."</h2>" if $show_title;
+  $html = h2($obj->translateTerm($term,$language)) if $show_title;
 
   # Get the external relations
   my %norel = %{$obj->{externals}};
@@ -688,8 +700,15 @@ sub navigate {
 
     # The externs exceptions...
     if (exists($norel{$rel})) {
-      # It's an external, so, blockquote it!!
-      $html.= "<blockquote>$obj->{$obj->{baselang}}{$term}{$rel}</blockquote><br>";
+      # It's an external, so...
+      #
+      # Its description is "..."?
+      if (exists ($obj->{description}{$rel}) && $obj->{description}{$rel} eq "...") {
+         $html.= $obj->{$obj->{baselang}}{$term}{$rel}.br;
+      } else {
+	 $html .= b("$obj->{descriptions}{$rel}") ;
+         $html.= $obj->{$obj->{baselang}}{$term}{$rel}.br;
+      }
     } elsif (exists($obj->{languages}{$rel})) {
       ## This empty block is used for languages translations
     } else {
@@ -697,13 +716,13 @@ sub navigate {
 
       # There is a translation for the *relation* description?
       if ($language && exists($obj->{descriptions}{"$rel $language"})) {
-	$html.= "<b>".$obj->{descriptions}{"$rel $language"}."</b>";
+	$html.= b($obj->{descriptions}{"$rel $language"})." ";
       } else {
 	# And, there is a description?
 	if (exists ($obj->{description}{$rel}) && $obj->{description}{$rel} eq "...") {
-	  $html .= "<b>$rel</b> ";
+	  $html .= b($rel)." ";
 	} else {
-	  $html .= "<b>$obj->{descriptions}{$rel}:</b> ";
+	  $html .= b("$obj->{descriptions}{$rel}: ") ;
 	}
       }
 
@@ -713,10 +732,10 @@ sub navigate {
 	my $link = $term;
 	$link =~ s/\s/+/g;
 	$term = $obj->translateTerm($term, $language);
-	"<a href=\"$script?t=$link\">$term</a>"
+	a({ href=>"$script?t=$link"},$term)
       } @{$obj->{$obj->{baselang}}{$term}{$rel}});
 
-      $html.= "<br>";
+      $html.= br;
     }
   }
 
@@ -724,11 +743,14 @@ sub navigate {
   for $rel (@{$expander}) {
     $rel = uc($rel);
     if (exists($obj->{$obj->{baselang}}{$term}{$rel})) {
-      @terms =  @{$obj->{$obj->{baselang}}{$term}{$rel}};
-      $html.= "<ul><li>" .
-	join("</li><li>", 
-	     map {thesaurusGetHTMLTerm($_, $obj, $script, $language)} @terms) .
-	       "</li></ul>";
+      @terms = @{$obj->{$obj->{baselang}}{$term}{$rel}};
+#JJ      $html.= "<ul><li>";
+#JJ      $html.= join("</li><li>", map {
+      $html.= ul(li([map {
+	thesaurusGetHTMLTerm($_, $obj, $script, $language,
+			     $second_level_limit, $hide_on_second_level);
+      } @terms])) if (@terms);
+#JJ      $html.= "</li></ul>";
     }
   }
   return $html;
@@ -747,20 +769,20 @@ sub toTex{
 
   my $procgr= sub {
       my $r=""; my $a;
-      my $ki =  $_corres->{$class}->[0] || 
-                  (defined $descs{$class} 
-                   ? "\\\\\\emph{$descs{$class}} -- " 
-                   : "\\\\\\emph{".ucfirst(lc($class))."} -- " 
+      my $ki =  $_corres->{$Class}->[0] || 
+                  (defined $descs{$Class} 
+                   ? "\\\\\\emph{$descs{$Class}} -- " 
+                   : "\\\\\\emph{".ucfirst(lc($Class))."} -- " 
                   );
-      my $kf = $_corres->{$class}->[1] || "\n";
-      $r = $ki . join(' $\diamondsuit$ ',@terms) if @terms;
+      my $kf = $_corres->{$Class}->[1] || "\n";
+      $r = $ki . join(' $\diamondsuit$ ',@Terms) if @Terms;
       };
 
 "\\begin{description}\n".
  $self->full_dt(
 #          '-default'  => $proc1,
            '-default'  => $procgr,
-          '_NAME_' => sub{"\n".'\item['.$term."]~\n"},
+          '_NAME_' => sub{"\n".'\item['.$Term."]~\n"},
           (%$mydt)
         ).
 "\\end{description}\n";
@@ -793,7 +815,11 @@ sub relations {
 #
 # Given a term, return it's information (second level for navigate)
 sub thesaurusGetHTMLTerm {
-  my ($term,$obj,$script,$language) = @_;
+  my ($term,$obj,$script,$language,$limit,$hide) = @_;
+
+  my @rels2hide = map {uc} (defined($hide))?@$hide:();
+  my %rels2hide;
+  @rels2hide{@rels2hide}=1;
 
   # Put thesaurus and descriptions on handy variables
   my %thesaurus = %{$obj->{$obj->{baselang}}};
@@ -807,42 +833,68 @@ sub thesaurusGetHTMLTerm {
 
     $link =~ s/\s/+/g;
     $tterm = $obj->translateTerm($term,$language);
-    $t = "<b><a href=\"$script?t=$link\">$tterm</a></b><br><small><ul>\n";
+    $t = b(a({href=>"$script?t=$link"},$tterm)). br . "<small><dl><dd>\n";
 
     for $c (sort keys %{$thesaurus{$term}}) {
       $c = uc($c);
+      next if exists($rels2hide{$c});
       # jump if it is the name relation :)
       next if ($c eq "_NAME_");
 
       if (exists($obj->{externals}{$c})) {
-	# put an external relation
-	$t.= "<div$thesaurus{$term}{$c}</div>";
+ 	# put an external relation
+        if (exists ($obj->{description}{$c}) && $obj->{description}{$c} eq "...") {
+          $t.= "<div>$thesaurus{$term}{$c}</div>";
+        } else {
+	  $t .= b("$obj->{descriptions}{$c}") ;
+ 	  $t.= "$thesaurus{$term}{$c}".br;
+        }
       } elsif (exists($obj->{languages}{$c})) {
-	# Jump the language relations
+ 	# Jump the language relations
       } else {
 	if (defined($language) && exists($descs{"$c $language"})) {
-	  $t.= "<b>".$descs{"$c $language"}.":</b> ";
-	} else {
-	  if ($descs{$c} eq "...") {
-	    $t.="<b>$c:</b> ";
-	  } else {
-	    $t.= "<b>$descs{$c}:</b> ";
-	  }
-	}
-	my @termos = @{$thesaurus{$term}{$c}};
-	if (defined($script)) {
-	  @termos = map {my $link = $_;
-			 $_ = $obj->translateTerm($_,$language);
-			 $link =~s/\s/+/g;
-			 "<a href=\"$script?t=$link\">$_</a>"} @termos;
-	}
-	$t.= join(", ", @termos) . "<br>\n";
+	  $t.= b($descs{"$c $language"})." ";
+ 	} else {
+ 	  if ($descs{$c} eq "...") {
+ 	    $t.= b($c)." ";
+ 	  } else {
+ 	    $t.= b($descs{$c})." ";
+ 	  }
+ 	}
+	my @termos = ( @{$thesaurus{$term}{$c}} );
+	if (defined($limit) && $limit!=0 && @termos > $limit) {
+ 	  while(@termos > $limit) { pop @termos; }
+ 	  push @termos, "...";
+ 	}
+ 	if (defined($script)) {
+ 	  @termos = map {my $link = $_;
+ 			 if ($link eq "...") {
+ 			   $link
+ 			 } else {
+ 			   $_ = $obj->translateTerm($_,$language) || $_;
+ 			   $link =~s/\s/+/g;
+ 			   a({href=>"$script?t=$link"},$_)
+ 			 }
+ 		       } @termos;
+ 	}
+ 	$t.= join(", ", @termos) . br."\n";
       }
     }
-    $t.= "</ul></small>\n";
+    $t.= "</dd></dl></small>\n";
     return $t;
   } else {
+    print STDERR "Can't find term '$term'\n";
     return $lang->str("[tnothere]\n");
+  }
+}
+
+sub getdefinition {
+  my $self = shift;
+  my $term = term_normalize(lc(shift));
+  if ($self->isdefined($term)) {
+  	return $self->{defined}{$term}; 
+  } else {
+	return $term;
   }
 }
 
@@ -941,15 +993,19 @@ sub addRelation {
   my $term = shift;
   my $rel = uc(shift);
   my @terms = @_;
-  $obj->{descriptions}{$rel}="..." 
+  $obj->{descriptions}{$rel} = "..." 
     unless defined($obj->{descriptions}{$rel});
 
   unless ($obj->isdefined($term)) {
     $obj->{defined}{lc(term_normalize($term))} = term_normalize($term);
   }
   $term = $obj->definition($term);
-  push @{$obj->{$obj->{baselang}}{$term}{$rel}},
-    map {term_normalize($_)} @terms;
+  if (exists($obj->{externals}{$rel})) {
+	$obj->{$obj->{baselang}}{$term}{$rel} = $terms[0];
+  } else {
+  	push @{$obj->{$obj->{baselang}}{$term}{$rel}},
+    		map {term_normalize($_)} @terms;
+  }
 }
 
 ###
@@ -976,41 +1032,41 @@ sub deleteTerm {
 ###
 #
 #
-sub dt {
+sub downtr {
   my $self = shift;
   my $t = shift; #lc(shift);
   my %handler = @_;
   my $c;
   my $r = "";
-  $term = $t;
+  $Term = $t;
   if (defined( $handler{"_NAME_"})){
     $r .=  &{$handler{"_NAME_"}};
   }
   for $c (keys %{$self->{$self->{baselang}}->{$t}}) {
     next if ($c eq "_NAME_");
 
-    # Set environment variables to dt function
+    # Set environment variables to downtr function
     #
     # Class...
     #
-    $class = $c;
+    $Class = $c;
     #
     # List of terms...
     #
-      if ($self->{externals}->{$class} ||
-	  $self->{languages}->{$class}) {
-        @terms = ( $self->{$self->{baselang}}{$t}{$class} );
-      } else {
-        @terms = @{$self->{$self->{baselang}}{$t}{$class}};
-      }
+    if ($self->{externals}->{$Class} ||
+	$self->{languages}->{$Class}) {
+      @Terms = ( $self->{$self->{baselang}}{$t}{$Class} );
+    } else {
+      @Terms = @{$self->{$self->{baselang}}{$t}{$Class}};
+    }
 
     #
     # Current term...
     #
-    $term = $t;
+    $Term = $t;
 
-    if (defined($handler{$class})) {
-    $r .=  &{$handler{$class}};
+    if (defined($handler{$Class})) {
+    $r .=  &{$handler{$Class}};
     } elsif (defined($handler{-default})) {
     $r .=  &{$handler{-default}};
     }
@@ -1027,7 +1083,7 @@ sub full_dt {
   my $t;
   my $r="";
   for $t (sort keys %{$self->{$self->{baselang}}}) {
-    $r .= $self->dt($t,%h);
+    $r .= $self->downtr($t,%h);
   }
   $r
 }
@@ -1038,7 +1094,7 @@ sub full_dt {
 sub tc{
   # @_ == ($self,$term,@relations)
   my %x = tc_aux(@_);
-  return keys %x;
+  return (keys %x);
 }
 
 ###
@@ -1046,6 +1102,7 @@ sub tc{
 #
 sub tc_aux {
   my ($self,$term,@relat) = @_;
+  $term = $self->getdefinition($term);
   my %r = ( $term => 1 );
   for ($self->terms($term,@relat)) {
     %r = (%r, $_ => 1,  tc_aux($self,$_,@relat)) unless $r{$_};
@@ -1053,6 +1110,9 @@ sub tc_aux {
   return %r;
 }
 
+###
+#
+#
 sub term_normalize {
   my $t = shift;
   $t =~ s/^\s*(.*?)\s*$/$1/;
@@ -1090,7 +1150,7 @@ Library::Thesaurus - Perl extension for managing ISO thesaurus
 
   $html = $obj->getHTMLTop();
 
-  $obj->dt('termo', %handler);
+  $obj->downtr('termo', %handler);
   $obj->full_dt(%handler);
 
   $obj->append("iso-file");
@@ -1427,6 +1487,37 @@ So, in the last example we could write
 meaning that the structure should show two levels of 'NT' and 'USE'
 relations, and that it should use the english language.
 
+These options include:
+
+=over 4
+
+=item expand
+
+a reference to a list of relations that should be expanded at first
+level; Defauls to the empty list.
+
+=item title
+
+can be C<yes> or C<no>. If it is C<no>, the current term will not be
+shown as a title; Defaults to C<yes>.
+
+=item scriptname
+
+the name of the script the links should point on. Defaults to current
+page name.
+
+=item level2size
+
+the number of terms to be shown on each second level relation;
+Defaults to 0 (all terms).
+
+=item level2hide
+
+a reference to a list of relations to do not show on the second
+level. Defaults to the empty list.
+
+=back
+
 =head2 complete
 
 This function completes the thesaurus based on the invertibility
@@ -1434,18 +1525,18 @@ properties. This operation is only needed when adding terms and
 relations by this API. Whenever the system loads a thesaurus ISO file,
 it is completed.
 
-=head2 dt and full_dt
+=head2 downtr and full_dt
 
-The C<dt> method is used to produce something from some term information.
+The C<downtr> method is used to produce something from some term information.
 It should be passed as argument a term and an associative array with
 anonymous subroutines that process each class. Example:
 
-  $the->dt("frog", {NT => sub{ #Do nothing
+  $the->downtr("frog", {NT => sub{ #Do nothing
                              },
                     -default => sub{ print "$class", join(",",@terms) }});
 
 
-The full_dt method does not receive a term and calls the dt method for all
+The full_dt method does not receive a term and calls the downtr method for all
 terms in the thesaurus.
 
 =head2 C<depth_first> 
@@ -1484,8 +1575,7 @@ José João Almeida, <jj@di.uminho.pt>
 Sara Correia,  <sara.correia@portugalmail.com>
 
 This module is included in the Natura project. You can visit it at
-http://natura.di.uminho.pt, and access the CVS tree at
-http://natura.di.uminho.pt/cgi-bin/cvsweb.cgi
+http://natura.di.uminho.pt, and access the CVS tree.
 
 =head1 SEE ALSO
 
